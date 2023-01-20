@@ -106,7 +106,7 @@ def get_data_frames1(filename,countries,indicator):
     # To filter data by countries
     # df = df.loc[df['Country Name'].isin(countries)]
     # To filter data by indicator code.
-    # df = df.loc[df['Indicator Code'].eq(indicator)]
+    df = df.loc[df['Indicator Code'].isin(indicator)]
     
     # Using melt function to convert all the years column into rows as 1 column
     df2 = df.melt(id_vars=['Country Name','Country Code','Indicator Name'
@@ -174,28 +174,28 @@ def norm_df(df, first=0, last=None):
     return df
 
 
-# def map_corr(df, size=10):
-#     """Function creates heatmap of correlation matrix for each pair of columns␣
-#     ↪→in the dataframe.
-#     Input:
-#     df: pandas DataFrame
-#     size: vertical and horizontal size of the plot (in inch)
-#     """
-#     corr = df.corr()
-#     fig, ax = plt.subplots(figsize=(size, size))
-#     ax.matshow(corr, cmap='magma')
-#     # setting ticks to column names
-#     plt.xticks(range(len(corr.columns)), corr.columns, rotation=90)
-#     plt.yticks(range(len(corr.columns)), corr.columns)
+def map_corr(df, size=10):
+    """Function creates heatmap of correlation matrix for each pair of columns␣
+    ↪→in the dataframe.
+    Input:
+    df: pandas DataFrame
+    size: vertical and horizontal size of the plot (in inch)
+    """
+    corr = df.corr()
+    fig, ax = plt.subplots(figsize=(size, size))
+    ax.matshow(corr, cmap='magma')
+    # setting ticks to column names
+    plt.xticks(range(len(corr.columns)), corr.columns, rotation=90)
+    plt.yticks(range(len(corr.columns)), corr.columns)
            
    
 
 
 
 
-#==============================================================================
+
 # Data fitting for China Population with prediction
-#==============================================================================
+
 
 countries = ['Germany','Australia','United States','China','United Kingdom']
 # calling functions to get dataframes and use for plotting graphs.
@@ -233,25 +233,6 @@ plt.ylabel("China Population")
 plt.title("Improved start value")
 plt.show()
 
-# fit exponential growth
-popt, covar = curve_fit(exp_growth, df2['Years'],df2['China'], p0=[7e8, 0.02])
-# much better
-print("Fit parameter", popt)
-df2['china_exp'] = exp_growth(df2['Years'], *popt)
-plt.figure()
-plt.plot(df2['Years'], df2['China'], label='data')
-plt.plot(df2['Years'], df2['china_exp'], label='fit')
-plt.legend()
-plt.xlabel("Year")
-plt.ylabel("China Population")
-plt.title("Final fit exponential growth")
-plt.show()
-
-
-# estimated turning year: 1990
-# population in 1990: about 1135185000
-# kept growth value from before
-# increase scale factor and growth rate until rough fit
 popt = [1135185000, 0.02, 1990]
 df2['china_log'] = logistics(df2['Years'], *popt)
 plt.figure()
@@ -315,9 +296,9 @@ print("2050:", mean, "+/-", pm)
 
 
 
-#==============================================================================
+
 # Data fitting with ouliners for Total Population
-#==============================================================================
+
 # List of countries 
 countries = ['Germany','Australia','United States','China','United Kingdom']
 # calling functions to get dataframes and use for plotting graphs.
@@ -368,9 +349,9 @@ plt.legend()
 plt.show()
 
 
-#==============================================================================
+
 # Bar plot for Terrestrial protected areas
-#==============================================================================
+
 
 df, df2 = get_data_frames('API_19_DS2_en_csv_v2_4773766.csv',countries
                              ,'ER.LND.PTLD.ZS')
@@ -395,9 +376,9 @@ plt.show()
 
 
 
-#==============================================================================
+
 # Bar plot for Electric Power Consumption
-#==============================================================================
+
 
 df, df2 = get_data_frames('API_19_DS2_en_csv_v2_4773766.csv',countries, 'EG.USE.ELEC.KH.PC')# Extracting data from files
 # df2 = df2.loc[df2['Indicator Code'].isin(['EG.USE.ELEC.KH.PC'])]
@@ -425,40 +406,74 @@ plt.show()
 
 
 
-#==============================================================================
-# Heat Map 
-#==============================================================================
+
+# Clustering Analysis (k-means Clustering)
+
+countries = ['Germany','Australia','United States','China','United Kingdom']
+df2, df3 = get_data_frames1('API_19_DS2_en_csv_v2_4773766.csv',countries
+                             ,['SP.POP.GROW','SP.POP.TOTL','SP.URB.GROW'
+                               ,'SP.URB.TOTL'])
 
 
-def map_corr(df, size=10):
-    """Function creates heatmap of correlation matrix for each pair of columns␣
-      ↪→in the dataframe.
-      Input:
-         df: pandas DataFrame
-          size: vertical and horizontal size of the plot (in inch)
-     """
-    corr = df.corr()
-    
-    fig, ax = plt.subplots(figsize=(size, size))
-    ax.matshow(corr, cmap='coolwarm')
-    # setting ticks to column names
-    plt.xticks(range(len(corr.columns)), corr.columns, rotation=90)
-    plt.yticks(range(len(corr.columns)), corr.columns)
-corr = df2.corr()
-# print(corr)
-map_corr(df2)
+df3 = df3.loc[df3['Years'].eq('2015')]
+df3 = df3.loc[~df3['Country Code'].isin(['XKX','MAF'])]
+
+df3.dropna()
+
+
+# Heat Map Plot
+map_corr(df3)
 plt.show()
-# df_stats = df_stats.drop(columns=["Age", "Accurate long balls", "Yellow␣↪→cards", "Red cards", "Offsides"])
-df2 = df2.fillna(0)
-# sns.pairplot(df_stats)
-plt.show
+
+# Scatter Matrix Plot
+pd.plotting.scatter_matrix(df3, figsize=(9.0, 9.0))
+plt.suptitle("Scatter Matrix Plot For All Countries", fontsize=20)
+plt.tight_layout() # helps to avoid overlap of labels
+plt.show()
 
 
-#==============================================================================
-# Scatter plot 
-#==============================================================================
+# extract columns for fitting
+df_fit = df3[["SP.POP.GROW", "SP.URB.GROW"]].copy()
+# normalise dataframe and inspect result
+# normalisation is done only on the extract columns. .copy() prevents
+# changes in df_fit to affect df_fish. This make the plots with the
+# original measurements
+df_fit = norm_df(df_fit)
+(df_fit.describe())
 
-pd.plotting.scatter_matrix(df2, figsize=(10,10), s=5, alpha=0.8)
+
+
+for ic in range(2, 7):
+    # set up kmeans and fit
+    kmeans = cluster.KMeans(n_clusters=ic)
+    kmeans.fit(df_fit)
+    # extract labels and calculate silhoutte score
+    labels = kmeans.labels_
+    print (ic, skmet.silhouette_score(df_fit, labels))
+
+
+# Plot for four clusters
+kmeans = cluster.KMeans(n_clusters=3)
+kmeans.fit(df_fit)
+
+# extract labels and cluster centres
+labels = kmeans.labels_
+cen = kmeans.cluster_centers_
+
+plt.figure(figsize=(6.0, 6.0))
+
+# Individual colours can be assigned to symbols. The label l is used to the
+# select the l-th number from the colour table.
+plt.scatter(df_fit["SP.POP.GROW"], df_fit["SP.URB.GROW"], c=labels
+            , cmap="Accent")
+# colour map Accent selected to increase contrast between colours
+# show cluster centres
+for ic in range(3):
+    xc, yc = cen[ic,:]
+    plt.plot(xc, yc, "dk", markersize=10)
+plt.xlabel("Population Growth")
+plt.ylabel("Urban Population Growth")
+plt.title("3 Clusters For All Countries")
 plt.show()
 
 
